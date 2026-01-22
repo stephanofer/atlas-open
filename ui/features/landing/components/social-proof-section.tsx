@@ -3,15 +3,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
 import { cn } from "@/ui/lib/utils";
 
-const companyLogos = [
-  { name: "TechCorp", initials: "TC" },
-  { name: "GlobalFinance", initials: "GF" },
-  { name: "InnovateLabs", initials: "IL" },
-  { name: "SmartRetail", initials: "SR" },
-  { name: "EcoEnergy", initials: "EE" },
-  { name: "HealthPlus", initials: "HP" },
-];
-
 const testimonials = [
   {
     quote: "Reducimos 70% el tiempo en aprobar facturas. Lo que antes tomaba días, ahora son minutos.",
