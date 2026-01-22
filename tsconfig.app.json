@@ -20,7 +20,14 @@
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,
-		"noUncheckedSideEffectImports": true
+		"noUncheckedSideEffectImports": true,
+
+		/* Path aliases */
+		"baseUrl": ".",
+		"paths": {
+			"@/ui/*": ["./ui/*"],
+			"@/api/*": ["./api/*"]
+		}
 	},
-	"include": ["src/react-app"]
+	"include": ["ui"]
 }
