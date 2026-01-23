@@ -34,6 +34,16 @@ export const documentsKeys = {
   history: (id: string) => [...documentsKeys.all, "history", id] as const,
 };
 
+// Dashboard query keys - to invalidate related queries after document operations
+export const dashboardKeys = {
+  stats: (companyId?: string, role?: string, areaId?: string | null, userId?: string) => 
+    ["dashboard-stats", companyId, role, areaId, userId] as const,
+  recentDocuments: (companyId?: string, role?: string, areaId?: string | null, userId?: string) => 
+    ["recent-documents", companyId, role, areaId, userId] as const,
+  monthlyTrend: (companyId?: string) => ["document-monthly-trend", companyId] as const,
+  weeklyActivity: (companyId?: string) => ["document-weekly-activity", companyId] as const,
+};
+
 // Filter types
 export interface DocumentFilters {
   search?: string;
@@ -346,8 +356,15 @@ export function useUploadDocument() {
       return document as Document;
     },
     onSuccess: () => {
-      debugQuery.log("Invalidating documents cache after upload");
+      debugQuery.log("Invalidating all document-related caches after upload");
+      // Invalidate ALL queries that start with "documents" - this catches list queries 
+      // regardless of filters or user-specific query key parts
       queryClient.invalidateQueries({ queryKey: documentsKeys.all });
+      // Also invalidate dashboard queries that show document counts and recent documents
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["document-monthly-trend"] });
+      queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] });
     },
   });
 }
@@ -394,9 +411,14 @@ export function useUpdateDocumentStatus() {
     },
     onSuccess: (data) => {
       debugQuery.log("Invalidating caches after status update");
-      queryClient.invalidateQueries({ queryKey: documentsKeys.list() });
+      // Invalidate all document queries
+      queryClient.invalidateQueries({ queryKey: documentsKeys.all });
+      // Invalidate specific document detail and history
       queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) });
       queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) });
+      // Invalidate dashboard queries
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
     },
   });
 }
@@ -459,9 +481,15 @@ export function useDeriveDocument() {
     },
     onSuccess: (data) => {
       debugQuery.log("Invalidating caches after derive");
+      // Invalidate all document queries
       queryClient.invalidateQueries({ queryKey: documentsKeys.all });
+      // Invalidate specific document detail and history
       queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) });
       queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) });
+      // Invalidate dashboard queries (recent docs, weekly activity shows derived docs)
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] });
     },
   });
 }
@@ -630,8 +658,14 @@ export function useDeleteDocument() {
       return id;
     },
     onSuccess: () => {
-      debugQuery.log("Invalidating documents cache after delete");
+      debugQuery.log("Invalidating all document-related caches after delete");
+      // Invalidate all document queries
       queryClient.invalidateQueries({ queryKey: documentsKeys.all });
+      // Invalidate dashboard queries
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["document-monthly-trend"] });
+      queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] });
     },
   });
 }
