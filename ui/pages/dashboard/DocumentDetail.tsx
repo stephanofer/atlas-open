@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -359,10 +359,6 @@ export default function DocumentDetailPage() {
   const updateStatusMutation = useUpdateDocumentStatus();
   const deleteMutation = useDeleteDocument();
 
-  // Track which document we've already tracked a view for
-  // This prevents duplicate view tracking when document data updates
-  const trackedDocumentId = useRef<string | null>(null);
-
   // Load document URL and track view
   useEffect(() => {
     async function loadDocument() {
@@ -372,20 +368,17 @@ export default function DocumentDetailPage() {
         setFileUrl(url);
         setLoadingUrl(false);
 
-        // Only track view once per unique document
-        // This prevents duplicate entries when document data refetches
-        if (trackedDocumentId.current !== document.id) {
-          trackedDocumentId.current = document.id;
-          trackViewMutation.mutate({
-            documentId: document.id,
-            companyId: document.company_id,
-            performedBy: profile.id,
-          });
-        }
+        // Track view
+        trackViewMutation.mutate({
+          documentId: document.id,
+          companyId: document.company_id,
+          performedBy: profile.id,
+        });
       }
     }
     loadDocument();
-  }, [document, profile, trackViewMutation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document?.id, profile?.id]);
 
   const handleDownload = async () => {
     if (!document || !profile) return;

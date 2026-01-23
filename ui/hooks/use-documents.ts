@@ -125,74 +125,74 @@ export function useDocument(id: string) {
   });
 }
 
-// Fetch document history with all relations using BATCH queries
-// This fixes the N+1 problem that was causing connection exhaustion
-// Instead of 4 queries PER record, we now do 1 main query + 2 batch queries total
+// Fetch document history
 export function useDocumentHistory(documentId: string) {
   return useQuery({
     queryKey: documentsKeys.history(documentId),
     queryFn: async () => {
-      // 1. Fetch all history records in one query
-      const { data: historyRecords, error } = await supabase
+      // Fetch history records
+      const { data, error } = await supabase
         .from("document_history")
         .select("*")
         .eq("document_id", documentId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (!historyRecords || historyRecords.length === 0) return [];
 
-      // 2. Collect all unique IDs for batch fetching
-      const profileIds = new Set<string>();
-      const areaIds = new Set<string>();
-
-      historyRecords.forEach((record) => {
-        if (record.performed_by) profileIds.add(record.performed_by);
-        if (record.to_user_id) profileIds.add(record.to_user_id);
-        if (record.from_area_id) areaIds.add(record.from_area_id);
-        if (record.to_area_id) areaIds.add(record.to_area_id);
-      });
-
-      // 3. Batch fetch profiles and areas (2 queries instead of 4*N)
-      const [profilesResult, areasResult] = await Promise.all([
-        profileIds.size > 0
-          ? supabase
+      // Fetch related data separately to avoid FK issues
+      const historyWithRelations: DocumentHistoryWithRelations[] = await Promise.all(
+        (data || []).map(async (record) => {
+          // Fetch performed_by user
+          let performed_by_user = null;
+          if (record.performed_by) {
+            const { data: user } = await supabase
               .from("profiles")
               .select("id, full_name, avatar_url")
-              .in("id", Array.from(profileIds))
-          : { data: [] },
-        areaIds.size > 0
-          ? supabase
+              .eq("id", record.performed_by)
+              .maybeSingle();
+            performed_by_user = user;
+          }
+
+          // Fetch from_area
+          let from_area = null;
+          if (record.from_area_id) {
+            const { data: area } = await supabase
               .from("areas")
               .select("id, name")
-              .in("id", Array.from(areaIds))
-          : { data: [] },
-      ]);
+              .eq("id", record.from_area_id)
+              .maybeSingle();
+            from_area = area;
+          }
 
-      // 4. Create lookup maps for O(1) access
-      const profilesMap = new Map(
-        (profilesResult.data || []).map((p) => [p.id, p])
-      );
-      const areasMap = new Map(
-        (areasResult.data || []).map((a) => [a.id, a])
-      );
+          // Fetch to_area
+          let to_area = null;
+          if (record.to_area_id) {
+            const { data: area } = await supabase
+              .from("areas")
+              .select("id, name")
+              .eq("id", record.to_area_id)
+              .maybeSingle();
+            to_area = area;
+          }
 
-      // 5. Map history records with their relations
-      const historyWithRelations: DocumentHistoryWithRelations[] = historyRecords.map(
-        (record) => ({
-          ...record,
-          performed_by_user: record.performed_by
-            ? profilesMap.get(record.performed_by) || null
-            : null,
-          to_user: record.to_user_id
-            ? profilesMap.get(record.to_user_id) || null
-            : null,
-          from_area: record.from_area_id
-            ? areasMap.get(record.from_area_id) || null
-            : null,
-          to_area: record.to_area_id
-            ? areasMap.get(record.to_area_id) || null
-            : null,
+          // Fetch to_user
+          let to_user = null;
+          if (record.to_user_id) {
+            const { data: user } = await supabase
+              .from("profiles")
+              .select("id, full_name")
+              .eq("id", record.to_user_id)
+              .maybeSingle();
+            to_user = user;
+          }
+
+          return {
+            ...record,
+            performed_by_user,
+            from_area,
+            to_area,
+            to_user,
+          };
         })
       );
 

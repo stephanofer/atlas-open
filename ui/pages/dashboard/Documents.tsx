@@ -93,11 +93,7 @@ function DocumentCard({ document, viewMode, onClick }: DocumentCardProps) {
   if (viewMode === "list") {
     return (
       <motion.div
-        layout
         variants={itemVariants}
-        initial="hidden"
-        animate="visible"
-        exit={{ opacity: 0, x: -20 }}
         whileHover={{ scale: 1.005 }}
         whileTap={{ scale: 0.995 }}
         className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
@@ -134,11 +130,7 @@ function DocumentCard({ document, viewMode, onClick }: DocumentCardProps) {
 
   return (
     <motion.div
-      layout
       variants={itemVariants}
-      initial="hidden"
-      animate="visible"
-      exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       className="group relative flex flex-col rounded-lg border bg-card overflow-hidden cursor-pointer transition-shadow hover:shadow-md"
@@ -492,17 +484,7 @@ export default function DocumentsPage() {
           ) : (
             <AnimatePresence mode="popLayout">
               <motion.div
-                key="documents-container"
                 layout
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: { opacity: 1 },
-                  visible: {
-                    opacity: 1,
-                    transition: { staggerChildren: 0.03 },
-                  },
-                }}
                 className={cn(
                   viewMode === "grid"
                     ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
