@@ -46,8 +46,14 @@ export interface DocumentFilters {
 export function useDocuments(filters?: DocumentFilters) {
   const { profile } = useAuthStore();
   
+  // Use stable primitive values for query key instead of object references
+  // This prevents unnecessary refetches when profile object reference changes
+  const userId = profile?.id;
+  const userRole = profile?.role;
+  const userAreaId = profile?.area_id;
+  
   return useQuery({
-    queryKey: [...documentsKeys.list(filters), profile?.id, profile?.role, profile?.area_id],
+    queryKey: [...documentsKeys.list(filters), userId, userRole, userAreaId],
     queryFn: async () => {
       let query = supabase
         .from("documents")
@@ -87,17 +93,17 @@ export function useDocuments(filters?: DocumentFilters) {
       // - In their area (current_area_id matches their area_id)
       // - Assigned to them (current_user_id matches their id)
       // - Uploaded by them (uploaded_by matches their id)
-      if (profile && profile.role === "user" && profile.area_id) {
+      if (userRole === "user" && userAreaId) {
         return (data as DocumentWithRelations[]).filter((doc) => 
-          doc.current_area_id === profile.area_id ||
-          doc.current_user_id === profile.id ||
-          doc.uploaded_by === profile.id
+          doc.current_area_id === userAreaId ||
+          doc.current_user_id === userId ||
+          doc.uploaded_by === userId
         );
       }
       
       return data as DocumentWithRelations[];
     },
-    enabled: !!profile,
+    enabled: !!profile?.company_id,
   });
 }
 

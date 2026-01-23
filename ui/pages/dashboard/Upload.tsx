@@ -239,7 +239,7 @@ export default function UploadPage() {
                   onChange={handleFileInputChange}
                 />
 
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="popLayout" initial={false}>
                   {!selectedFile ? (
                     <motion.div
                       key="dropzone"

@@ -1,4 +1,5 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation, Link } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/ui/components/shadcn/sidebar";
 import { AppSidebar } from "@/ui/components/dashboard/app-sidebar";
 import { Separator } from "@/ui/components/shadcn/separator";
@@ -10,7 +11,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/ui/components/shadcn/breadcrumb";
-import { useLocation, Link } from "react-router-dom";
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Inicio",
@@ -57,7 +57,17 @@ export function DashboardLayout() {
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <Outlet />
+          {/* AnimatePresence with popLayout mode prevents stuck animations on route changes */}
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0.9 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </SidebarInset>
     </SidebarProvider>

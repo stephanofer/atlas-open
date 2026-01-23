@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/ui/lib/supabase";
+import { useAuthStore } from "@/ui/stores/auth.store";
 import type { Profile, Area } from "@/ui/types/database";
 
 // Query keys
@@ -16,6 +17,8 @@ export type ProfileWithArea = Profile & {
 
 // Fetch all users for the current company
 export function useUsers() {
+  const { profile } = useAuthStore();
+  
   return useQuery({
     queryKey: usersKeys.list(),
     queryFn: async () => {
@@ -33,6 +36,7 @@ export function useUsers() {
       if (error) throw error;
       return data as ProfileWithArea[];
     },
+    enabled: !!profile?.company_id,
   });
 }
 
@@ -237,6 +241,8 @@ export function useDeleteUser() {
 
 // Count admins for validation
 export function useAdminCount() {
+  const { profile } = useAuthStore();
+  
   return useQuery({
     queryKey: [...usersKeys.all, "admin-count"],
     queryFn: async () => {
@@ -249,5 +255,6 @@ export function useAdminCount() {
       if (error) throw error;
       return count ?? 0;
     },
+    enabled: !!profile?.company_id,
   });
 }

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/ui/lib/supabase";
+import { useAuthStore } from "@/ui/stores/auth.store";
 import type { Category } from "@/ui/types/database";
 
 // Query keys
@@ -11,6 +12,8 @@ export const categoriesKeys = {
 
 // Fetch all categories for the current company
 export function useCategories() {
+  const { profile } = useAuthStore();
+  
   return useQuery({
     queryKey: categoriesKeys.list(),
     queryFn: async () => {
@@ -23,6 +26,7 @@ export function useCategories() {
       if (error) throw error;
       return data as Category[];
     },
+    enabled: !!profile?.company_id,
   });
 }
 

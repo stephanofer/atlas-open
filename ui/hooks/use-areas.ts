@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/ui/lib/supabase";
+import { useAuthStore } from "@/ui/stores/auth.store";
 import type { Area } from "@/ui/types/database";
 
 // Query keys
@@ -11,6 +12,8 @@ export const areasKeys = {
 
 // Fetch all areas for the current company
 export function useAreas() {
+  const { profile } = useAuthStore();
+  
   return useQuery({
     queryKey: areasKeys.list(),
     queryFn: async () => {
@@ -22,6 +25,7 @@ export function useAreas() {
       if (error) throw error;
       return data as Area[];
     },
+    enabled: !!profile?.company_id,
   });
 }
 

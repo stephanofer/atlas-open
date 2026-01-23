@@ -279,7 +279,7 @@ function DocumentPreview({
             <span className="text-sm">Cargando documento...</span>
           </div>
         ) : fileUrl ? (
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout" initial={false}>
             {isImage ? (
               <motion.div
                 key="image"
