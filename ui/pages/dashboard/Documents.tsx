@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -49,13 +49,17 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.05 },
+    transition: { staggerChildren: 0.03 },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
+  hidden: { opacity: 0, y: 10 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.2 }
+  },
 };
 
 function formatFileSize(bytes: number): string {
@@ -482,25 +486,25 @@ export default function DocumentsPage() {
               </CardContent>
             </Card>
           ) : (
-            <AnimatePresence mode="popLayout">
-              <motion.div
-                layout
-                className={cn(
-                  viewMode === "grid"
-                    ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
-                    : "space-y-2"
-                )}
-              >
-                {filteredDocuments.map((doc) => (
-                  <DocumentCard
-                    key={doc.id}
-                    document={doc}
-                    viewMode={viewMode}
-                    onClick={() => handleDocumentClick(doc)}
-                  />
-                ))}
-              </motion.div>
-            </AnimatePresence>
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className={cn(
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                  : "space-y-2"
+              )}
+            >
+              {filteredDocuments.map((doc) => (
+                <DocumentCard
+                  key={doc.id}
+                  document={doc}
+                  viewMode={viewMode}
+                  onClick={() => handleDocumentClick(doc)}
+                />
+              ))}
+            </motion.div>
           )}
         </motion.div>
 
