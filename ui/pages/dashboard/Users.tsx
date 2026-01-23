@@ -379,7 +379,7 @@ export default function UsersPage() {
                                         variant="outline"
                                         className="text-xs"
                                       >
-                                        Vos
+                                        Sesión actual
                                       </Badge>
                                     )}
                                   </div>

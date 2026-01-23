@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/ui/lib/supabase";
+import { useAuthStore } from "@/ui/stores/auth.store";
 import type {
   Document,
   DocumentHistory,
@@ -41,9 +42,12 @@ export interface DocumentFilters {
 }
 
 // Fetch all documents for the current company with optional filters
+// Filters by user's area if they are not admin/supervisor
 export function useDocuments(filters?: DocumentFilters) {
+  const { profile } = useAuthStore();
+  
   return useQuery({
-    queryKey: documentsKeys.list(filters),
+    queryKey: [...documentsKeys.list(filters), profile?.id, profile?.role, profile?.area_id],
     queryFn: async () => {
       let query = supabase
         .from("documents")
@@ -76,8 +80,24 @@ export function useDocuments(filters?: DocumentFilters) {
       const { data, error } = await query;
 
       if (error) throw error;
+      
+      // Filter documents based on user role
+      // Admin and Supervisor see all documents in their company
+      // Regular users only see documents:
+      // - In their area (current_area_id matches their area_id)
+      // - Assigned to them (current_user_id matches their id)
+      // - Uploaded by them (uploaded_by matches their id)
+      if (profile && profile.role === "user" && profile.area_id) {
+        return (data as DocumentWithRelations[]).filter((doc) => 
+          doc.current_area_id === profile.area_id ||
+          doc.current_user_id === profile.id ||
+          doc.uploaded_by === profile.id
+        );
+      }
+      
       return data as DocumentWithRelations[];
     },
+    enabled: !!profile,
   });
 }
 
@@ -105,74 +125,74 @@ export function useDocument(id: string) {
   });
 }
 
-// Fetch document history
+// Fetch document history with all relations using BATCH queries
+// This fixes the N+1 problem that was causing connection exhaustion
+// Instead of 4 queries PER record, we now do 1 main query + 2 batch queries total
 export function useDocumentHistory(documentId: string) {
   return useQuery({
     queryKey: documentsKeys.history(documentId),
     queryFn: async () => {
-      // Fetch history records
-      const { data, error } = await supabase
+      // 1. Fetch all history records in one query
+      const { data: historyRecords, error } = await supabase
         .from("document_history")
         .select("*")
         .eq("document_id", documentId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      if (!historyRecords || historyRecords.length === 0) return [];
 
-      // Fetch related data separately to avoid FK issues
-      const historyWithRelations: DocumentHistoryWithRelations[] = await Promise.all(
-        (data || []).map(async (record) => {
-          // Fetch performed_by user
-          let performed_by_user = null;
-          if (record.performed_by) {
-            const { data: user } = await supabase
+      // 2. Collect all unique IDs for batch fetching
+      const profileIds = new Set<string>();
+      const areaIds = new Set<string>();
+
+      historyRecords.forEach((record) => {
+        if (record.performed_by) profileIds.add(record.performed_by);
+        if (record.to_user_id) profileIds.add(record.to_user_id);
+        if (record.from_area_id) areaIds.add(record.from_area_id);
+        if (record.to_area_id) areaIds.add(record.to_area_id);
+      });
+
+      // 3. Batch fetch profiles and areas (2 queries instead of 4*N)
+      const [profilesResult, areasResult] = await Promise.all([
+        profileIds.size > 0
+          ? supabase
               .from("profiles")
               .select("id, full_name, avatar_url")
-              .eq("id", record.performed_by)
-              .maybeSingle();
-            performed_by_user = user;
-          }
-
-          // Fetch from_area
-          let from_area = null;
-          if (record.from_area_id) {
-            const { data: area } = await supabase
+              .in("id", Array.from(profileIds))
+          : { data: [] },
+        areaIds.size > 0
+          ? supabase
               .from("areas")
               .select("id, name")
-              .eq("id", record.from_area_id)
-              .maybeSingle();
-            from_area = area;
-          }
+              .in("id", Array.from(areaIds))
+          : { data: [] },
+      ]);
 
-          // Fetch to_area
-          let to_area = null;
-          if (record.to_area_id) {
-            const { data: area } = await supabase
-              .from("areas")
-              .select("id, name")
-              .eq("id", record.to_area_id)
-              .maybeSingle();
-            to_area = area;
-          }
+      // 4. Create lookup maps for O(1) access
+      const profilesMap = new Map(
+        (profilesResult.data || []).map((p) => [p.id, p])
+      );
+      const areasMap = new Map(
+        (areasResult.data || []).map((a) => [a.id, a])
+      );
 
-          // Fetch to_user
-          let to_user = null;
-          if (record.to_user_id) {
-            const { data: user } = await supabase
-              .from("profiles")
-              .select("id, full_name")
-              .eq("id", record.to_user_id)
-              .maybeSingle();
-            to_user = user;
-          }
-
-          return {
-            ...record,
-            performed_by_user,
-            from_area,
-            to_area,
-            to_user,
-          };
+      // 5. Map history records with their relations
+      const historyWithRelations: DocumentHistoryWithRelations[] = historyRecords.map(
+        (record) => ({
+          ...record,
+          performed_by_user: record.performed_by
+            ? profilesMap.get(record.performed_by) || null
+            : null,
+          to_user: record.to_user_id
+            ? profilesMap.get(record.to_user_id) || null
+            : null,
+          from_area: record.from_area_id
+            ? areasMap.get(record.from_area_id) || null
+            : null,
+          to_area: record.to_area_id
+            ? areasMap.get(record.to_area_id) || null
+            : null,
         })
       );
 

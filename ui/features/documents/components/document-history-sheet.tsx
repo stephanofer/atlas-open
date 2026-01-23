@@ -176,27 +176,29 @@ export function DocumentHistorySheet({
           )}
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-120px)] mt-6 pr-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : history.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <HistoryIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p>No hay historial disponible</p>
-            </div>
-          ) : (
-            <div className="space-y-0">
-              {history.map((item, index) => (
-                <HistoryItem
-                  key={item.id}
-                  item={item}
-                  isLast={index === history.length - 1}
-                />
-              ))}
-            </div>
-          )}
+        <ScrollArea className="h-[calc(100vh-120px)] mt-6">
+          <div className="px-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <HistoryIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p>No hay historial disponible</p>
+              </div>
+            ) : (
+              <div className="space-y-0 pr-4">
+                {history.map((item, index) => (
+                  <HistoryItem
+                    key={item.id}
+                    item={item}
+                    isLast={index === history.length - 1}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </ScrollArea>
       </SheetContent>
     </Sheet>

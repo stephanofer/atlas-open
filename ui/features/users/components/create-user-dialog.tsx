@@ -315,15 +315,15 @@ export function CreateUserDialog({
           <div className="space-y-2">
             <Label>Área</Label>
             <Select
-              value={selectedAreaId || ""}
-              onValueChange={(value) => setValue("area_id", value || "")}
+              value={selectedAreaId || "__none__"}
+              onValueChange={(value) => setValue("area_id", value === "__none__" ? "" : value)}
               disabled={isPending}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar área (opcional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin área asignada</SelectItem>
+                <SelectItem value="__none__">Sin área asignada</SelectItem>
                 {areas.map((area) => (
                   <SelectItem key={area.id} value={area.id}>
                     {area.name}

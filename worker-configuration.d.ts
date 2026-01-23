@@ -6,6 +6,8 @@ declare namespace Cloudflare {
 		mainModule: typeof import("./src/worker/index");
 	}
 	interface Env {
+		SUPABASE_URL: string;
+		SUPABASE_SERVICE_ROLE_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

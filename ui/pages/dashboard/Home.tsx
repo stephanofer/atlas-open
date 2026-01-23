@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, XAxis, YAxis } from "recharts";
+import { useNavigate } from "react-router-dom";
 
 import { useAuthStore } from "@/ui/stores/auth.store";
 import { supabase } from "@/ui/lib/supabase";
@@ -126,21 +127,48 @@ export default function DashboardHomePage() {
   const greeting = getGreeting();
   const firstName = profile?.full_name?.split(" ")[0] || "Usuario";
 
-  // Fetch dashboard stats
+  const navigate = useNavigate();
+
+  // Fetch dashboard stats - filtered by role for documents
   const { data: stats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ["dashboard-stats", profile?.company_id],
+    queryKey: ["dashboard-stats", profile?.company_id, profile?.role, profile?.area_id, profile?.id],
     queryFn: async () => {
       if (!profile?.company_id) return null;
 
-      const [documentsRes, usersRes, areasRes, categoriesRes] = await Promise.all([
-        supabase.from("documents").select("id", { count: "exact", head: true }),
+      // Users, areas, and categories are always company-wide
+      const [usersRes, areasRes, categoriesRes] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("areas").select("id", { count: "exact", head: true }),
         supabase.from("categories").select("id", { count: "exact", head: true }),
       ]);
 
+      // Documents count depends on user role
+      let documentsCount = 0;
+      if (profile.role === "admin" || profile.role === "supervisor") {
+        // Admin/Supervisor see all company documents
+        const { count } = await supabase
+          .from("documents")
+          .select("id", { count: "exact", head: true });
+        documentsCount = count ?? 0;
+      } else {
+        // Regular users: fetch all and filter client-side
+        // (same logic as useDocuments hook)
+        const { data } = await supabase
+          .from("documents")
+          .select("id, current_area_id, current_user_id, uploaded_by");
+        
+        if (data && profile.area_id) {
+          documentsCount = data.filter(
+            (doc) =>
+              doc.current_area_id === profile.area_id ||
+              doc.current_user_id === profile.id ||
+              doc.uploaded_by === profile.id
+          ).length;
+        }
+      }
+
       return {
-        documents: documentsRes.count ?? 0,
+        documents: documentsCount,
         users: usersRes.count ?? 0,
         areas: areasRes.count ?? 0,
         categories: categoriesRes.count ?? 0,
@@ -149,19 +177,32 @@ export default function DashboardHomePage() {
     enabled: !!profile?.company_id,
   });
 
-  // Fetch recent documents
+  // Fetch recent documents - filtered by role
   const { data: recentDocs, isLoading: isLoadingDocs } = useQuery({
-    queryKey: ["recent-documents", profile?.company_id],
+    queryKey: ["recent-documents", profile?.company_id, profile?.role, profile?.area_id, profile?.id],
     queryFn: async () => {
       if (!profile?.company_id) return [];
 
       const { data } = await supabase
         .from("documents")
-        .select("id, title, status, created_at, category:categories(name)")
+        .select("id, title, status, created_at, current_area_id, current_user_id, uploaded_by, category:categories(name)")
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(20); // Fetch more to filter
 
-      return data ?? [];
+      if (!data) return [];
+
+      // Filter based on role
+      let filtered = data;
+      if (profile.role === "user" && profile.area_id) {
+        filtered = data.filter(
+          (doc) =>
+            doc.current_area_id === profile.area_id ||
+            doc.current_user_id === profile.id ||
+            doc.uploaded_by === profile.id
+        );
+      }
+
+      return filtered.slice(0, 5); // Return top 5
     },
     enabled: !!profile?.company_id,
   });
@@ -494,8 +535,16 @@ export default function DashboardHomePage() {
                   {recentDocs.map((doc) => (
                     <motion.div
                       key={doc.id}
-                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                       whileHover={{ x: 4 }}
+                      onClick={() => navigate(`/dashboard/documents/${doc.id}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          navigate(`/dashboard/documents/${doc.id}`);
+                        }
+                      }}
                     >
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                         <FileText className="h-5 w-5 text-primary" />

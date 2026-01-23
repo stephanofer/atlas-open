@@ -59,7 +59,7 @@ export function useUser(id: string) {
   });
 }
 
-// Create user - Uses Supabase Admin API via Edge Function
+// Create user - Uses API endpoint with Supabase Admin API
 type CreateUserInput = {
   email: string;
   password: string;
@@ -75,71 +75,31 @@ export function useCreateUser() {
 
   return useMutation({
     mutationFn: async (input: CreateUserInput) => {
-      // IMPORTANT: We need to create the user without affecting the current session
-      // We use signUp with the autoConfirm option, but the session won't be set
-      // because we're not using signInWithPassword afterward
-
-      // First, create the auth user
-      // We need to use a workaround: save current session, create user, restore session
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-
-      // Create auth user
-      const { data: authData, error: authError } =
-        await supabase.auth.signUp({
+      // Call the API endpoint that uses Supabase Admin API
+      // This creates the user WITHOUT affecting the current session
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           email: input.email,
           password: input.password,
-          options: {
-            data: {
-              full_name: input.full_name,
-            },
-          },
-        });
-
-      if (authError) {
-        if (authError.message?.includes("already registered")) {
-          throw new Error("Este email ya está registrado");
-        }
-        throw authError;
-      }
-
-      if (!authData.user) {
-        throw new Error("Error al crear el usuario");
-      }
-
-      // Restore current session immediately to prevent session switch
-      if (currentSession) {
-        await supabase.auth.setSession({
-          access_token: currentSession.access_token,
-          refresh_token: currentSession.refresh_token,
-        });
-      }
-
-      // Create profile
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: authData.user.id,
-          company_id: input.company_id,
-          email: input.email,
           full_name: input.full_name,
           role: input.role,
           position: input.position || null,
           area_id: input.area_id || null,
-          status: "active",
-        })
-        .select()
-        .single();
+          company_id: input.company_id,
+        }),
+      });
 
-      if (profileError) {
-        // Try to clean up auth user if profile creation fails
-        // Note: This may not work without admin rights
-        console.error("Profile creation failed:", profileError);
-        throw new Error("Error al crear el perfil del usuario");
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Error al crear el usuario");
       }
 
-      return profile as Profile;
+      return data.user as Profile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: usersKeys.list() });

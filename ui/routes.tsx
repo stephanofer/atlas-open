@@ -18,6 +18,7 @@ import UploadPage from "@/ui/pages/dashboard/Upload";
 import UsersPage from "@/ui/pages/dashboard/Users";
 import AreasPage from "@/ui/pages/dashboard/Areas";
 import CategoriesPage from "@/ui/pages/dashboard/Categories";
+import DocumentDetailPage from "@/ui/pages/dashboard/DocumentDetail";
 
 export const router = createBrowserRouter([
   // Public routes (landing, pricing, etc.)
@@ -63,6 +64,10 @@ export const router = createBrowserRouter([
           {
             path: "/dashboard/documents",
             element: <DocumentsPage />,
+          },
+          {
+            path: "/dashboard/documents/:id",
+            element: <DocumentDetailPage />,
           },
           {
             path: "/dashboard/upload",

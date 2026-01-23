@@ -344,9 +344,24 @@ CREATE POLICY "Admins can delete categories in own company"
     USING (company_id = get_user_company_id() AND is_user_admin());
 
 -- ----- DOCUMENTS -----
-CREATE POLICY "Users can view documents in own company"
+CREATE POLICY "Users can view documents based on role"
     ON documents FOR SELECT
-    USING (company_id = get_user_company_id());
+    USING (
+        company_id = get_user_company_id()
+        AND (
+            -- Admins and supervisors see all documents in their company
+            is_user_admin()
+            OR EXISTS (
+                SELECT 1 FROM profiles 
+                WHERE id = auth.uid() 
+                AND role = 'supervisor'
+            )
+            -- Regular users see documents in their area, assigned to them, or uploaded by them
+            OR current_area_id = (SELECT area_id FROM profiles WHERE id = auth.uid())
+            OR current_user_id = auth.uid()
+            OR uploaded_by = auth.uid()
+        )
+    );
 
 CREATE POLICY "Active users can insert documents"
     ON documents FOR INSERT
@@ -372,6 +387,16 @@ CREATE POLICY "Users can update assigned documents"
                 WHERE id = auth.uid() 
                 AND role = 'supervisor'
             )
+        )
+    );
+
+CREATE POLICY "Admins and uploaders can delete documents"
+    ON documents FOR DELETE
+    USING (
+        company_id = get_user_company_id()
+        AND (
+            is_user_admin()
+            OR uploaded_by = auth.uid()
         )
     );
 

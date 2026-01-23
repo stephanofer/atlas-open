@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   FileText,
   Search,
@@ -41,9 +41,6 @@ import { useCategories } from "@/ui/hooks/use-categories";
 import { useAreas } from "@/ui/hooks/use-areas";
 import { 
   DocumentStatusBadge,
-  DocumentViewer,
-  DeriveDocumentDialog,
-  DocumentHistorySheet,
 } from "@/ui/features/documents";
 import { DOCUMENT_STATUS, type DocumentStatus } from "@/ui/types/database";
 import { cn } from "@/ui/lib/utils";
@@ -96,7 +93,11 @@ function DocumentCard({ document, viewMode, onClick }: DocumentCardProps) {
   if (viewMode === "list") {
     return (
       <motion.div
+        layout
         variants={itemVariants}
+        initial="hidden"
+        animate="visible"
+        exit={{ opacity: 0, x: -20 }}
         whileHover={{ scale: 1.005 }}
         whileTap={{ scale: 0.995 }}
         className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
@@ -133,7 +134,11 @@ function DocumentCard({ document, viewMode, onClick }: DocumentCardProps) {
 
   return (
     <motion.div
+      layout
       variants={itemVariants}
+      initial="hidden"
+      animate="visible"
+      exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       className="group relative flex flex-col rounded-lg border bg-card overflow-hidden cursor-pointer transition-shadow hover:shadow-md"
@@ -202,18 +207,13 @@ function DocumentSkeleton({ viewMode }: { viewMode: "grid" | "list" }) {
 }
 
 export default function DocumentsPage() {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [areaFilter, setAreaFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
-
-  // Selected document states
-  const [selectedDocument, setSelectedDocument] = useState<DocumentWithRelations | null>(null);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [deriveOpen, setDeriveOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Queries
   const { data: documents = [], isLoading } = useDocuments();
@@ -260,18 +260,7 @@ export default function DocumentsPage() {
   };
 
   const handleDocumentClick = (doc: DocumentWithRelations) => {
-    setSelectedDocument(doc);
-    setViewerOpen(true);
-  };
-
-  const handleDerive = () => {
-    setViewerOpen(false);
-    setDeriveOpen(true);
-  };
-
-  const handleViewHistory = () => {
-    setViewerOpen(false);
-    setHistoryOpen(true);
+    navigate(`/dashboard/documents/${doc.id}`);
   };
 
   return (
@@ -503,7 +492,17 @@ export default function DocumentsPage() {
           ) : (
             <AnimatePresence mode="popLayout">
               <motion.div
+                key="documents-container"
                 layout
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: { opacity: 1 },
+                  visible: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.03 },
+                  },
+                }}
                 className={cn(
                   viewMode === "grid"
                     ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
@@ -535,31 +534,6 @@ export default function DocumentsPage() {
           </motion.div>
         )}
       </motion.div>
-
-      {/* Document Viewer Dialog */}
-      <DocumentViewer
-        document={selectedDocument}
-        open={viewerOpen}
-        onOpenChange={setViewerOpen}
-        onDerive={handleDerive}
-        onViewHistory={handleViewHistory}
-      />
-
-      {/* Derive Document Dialog */}
-      <DeriveDocumentDialog
-        document={selectedDocument}
-        open={deriveOpen}
-        onOpenChange={setDeriveOpen}
-        onSuccess={() => setSelectedDocument(null)}
-      />
-
-      {/* Document History Sheet */}
-      <DocumentHistorySheet
-        documentId={selectedDocument?.id || null}
-        documentTitle={selectedDocument?.title}
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-      />
     </>
   );
 }
