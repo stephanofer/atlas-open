@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 import { supabase } from "@/ui/lib/supabase";
 import { useAuthStore } from "@/ui/stores/auth.store";
+import { debugQuery, debugSupabase } from "@/ui/lib/debug";
 import type {
   Document,
   DocumentHistory,
@@ -55,6 +57,9 @@ export function useDocuments(filters?: DocumentFilters) {
   return useQuery({
     queryKey: [...documentsKeys.list(filters), userId, userRole, userAreaId],
     queryFn: async () => {
+      const timer = debugQuery.time("Fetch documents");
+      debugSupabase.log("Fetching documents list", { filters, userId, userRole });
+
       let query = supabase
         .from("documents")
         .select(`
@@ -84,8 +89,14 @@ export function useDocuments(filters?: DocumentFilters) {
       }
 
       const { data, error } = await query;
+      timer.end();
 
-      if (error) throw error;
+      if (error) {
+        debugSupabase.error("Documents fetch error", error);
+        throw error;
+      }
+      
+      debugSupabase.success(`Fetched ${data?.length || 0} documents`);
       
       // Filter documents based on user role
       // Admin and Supervisor see all documents in their company
@@ -94,11 +105,13 @@ export function useDocuments(filters?: DocumentFilters) {
       // - Assigned to them (current_user_id matches their id)
       // - Uploaded by them (uploaded_by matches their id)
       if (userRole === "user" && userAreaId) {
-        return (data as DocumentWithRelations[]).filter((doc) => 
+        const filtered = (data as DocumentWithRelations[]).filter((doc) => 
           doc.current_area_id === userAreaId ||
           doc.current_user_id === userId ||
           doc.uploaded_by === userId
         );
+        debugSupabase.log(`Filtered to ${filtered.length} documents for user role`);
+        return filtered;
       }
       
       return data as DocumentWithRelations[];
@@ -112,6 +125,9 @@ export function useDocument(id: string) {
   return useQuery({
     queryKey: documentsKeys.detail(id),
     queryFn: async () => {
+      debugSupabase.log("Fetching document detail", { id });
+      const timer = debugQuery.time(`Fetch document ${id}`);
+
       const { data, error } = await supabase
         .from("documents")
         .select(`
@@ -124,84 +140,115 @@ export function useDocument(id: string) {
         .eq("id", id)
         .single();
 
-      if (error) throw error;
+      timer.end();
+
+      if (error) {
+        debugSupabase.error("Document detail fetch error", error);
+        throw error;
+      }
+      
+      debugSupabase.success("Document detail fetched", { title: data?.title });
       return data as DocumentWithRelations;
     },
     enabled: !!id,
   });
 }
 
-// Fetch document history
+// Fetch document history - OPTIMIZED to avoid N+1 queries
 export function useDocumentHistory(documentId: string) {
   return useQuery({
     queryKey: documentsKeys.history(documentId),
     queryFn: async () => {
+      debugSupabase.log("Fetching document history", { documentId });
+      const timer = debugQuery.time(`Fetch history ${documentId}`);
+
       // Fetch history records
-      const { data, error } = await supabase
+      const { data: historyData, error: historyError } = await supabase
         .from("document_history")
         .select("*")
         .eq("document_id", documentId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (historyError) {
+        timer.end();
+        debugSupabase.error("History fetch error", historyError);
+        throw historyError;
+      }
 
-      // Fetch related data separately to avoid FK issues
-      const historyWithRelations: DocumentHistoryWithRelations[] = await Promise.all(
-        (data || []).map(async (record) => {
-          // Fetch performed_by user
-          let performed_by_user = null;
-          if (record.performed_by) {
-            const { data: user } = await supabase
+      if (!historyData?.length) {
+        timer.end();
+        debugSupabase.log("No history records found");
+        return [];
+      }
+
+      debugSupabase.log(`Found ${historyData.length} history records, fetching relations...`);
+
+      // Collect unique IDs for batch fetching
+      const userIds = new Set<string>();
+      const areaIds = new Set<string>();
+
+      historyData.forEach((record) => {
+        if (record.performed_by) userIds.add(record.performed_by);
+        if (record.to_user_id) userIds.add(record.to_user_id);
+        if (record.from_area_id) areaIds.add(record.from_area_id);
+        if (record.to_area_id) areaIds.add(record.to_area_id);
+      });
+
+      debugSupabase.log(`Batch fetching: ${userIds.size} users, ${areaIds.size} areas`);
+
+      // Batch fetch users and areas in parallel
+      const [usersResult, areasResult] = await Promise.all([
+        userIds.size > 0
+          ? supabase
               .from("profiles")
               .select("id, full_name, avatar_url")
-              .eq("id", record.performed_by)
-              .maybeSingle();
-            performed_by_user = user;
-          }
-
-          // Fetch from_area
-          let from_area = null;
-          if (record.from_area_id) {
-            const { data: area } = await supabase
+              .in("id", Array.from(userIds))
+          : { data: [], error: null },
+        areaIds.size > 0
+          ? supabase
               .from("areas")
               .select("id, name")
-              .eq("id", record.from_area_id)
-              .maybeSingle();
-            from_area = area;
-          }
+              .in("id", Array.from(areaIds))
+          : { data: [], error: null },
+      ]);
 
-          // Fetch to_area
-          let to_area = null;
-          if (record.to_area_id) {
-            const { data: area } = await supabase
-              .from("areas")
-              .select("id, name")
-              .eq("id", record.to_area_id)
-              .maybeSingle();
-            to_area = area;
-          }
+      if (usersResult.error) {
+        debugSupabase.warn("Users batch fetch error", usersResult.error);
+      }
+      if (areasResult.error) {
+        debugSupabase.warn("Areas batch fetch error", areasResult.error);
+      }
 
-          // Fetch to_user
-          let to_user = null;
-          if (record.to_user_id) {
-            const { data: user } = await supabase
-              .from("profiles")
-              .select("id, full_name")
-              .eq("id", record.to_user_id)
-              .maybeSingle();
-            to_user = user;
-          }
+      // Create lookup maps for O(1) access
+      const usersMap = new Map(
+        (usersResult.data || []).map((u) => [u.id, u])
+      );
+      const areasMap = new Map(
+        (areasResult.data || []).map((a) => [a.id, a])
+      );
 
-          return {
-            ...record,
-            performed_by_user,
-            from_area,
-            to_area,
-            to_user,
-          };
+      // Map history records with relations
+      const historyWithRelations: DocumentHistoryWithRelations[] = historyData.map(
+        (record) => ({
+          ...record,
+          performed_by_user: record.performed_by
+            ? usersMap.get(record.performed_by) || null
+            : null,
+          from_area: record.from_area_id
+            ? areasMap.get(record.from_area_id) || null
+            : null,
+          to_area: record.to_area_id
+            ? areasMap.get(record.to_area_id) || null
+            : null,
+          to_user: record.to_user_id
+            ? usersMap.get(record.to_user_id) || null
+            : null,
         })
       );
 
+      timer.end();
+      debugSupabase.success(`History loaded with relations (${historyWithRelations.length} records, 2 batch queries)`);
+      
       return historyWithRelations;
     },
     enabled: !!documentId,
@@ -226,10 +273,15 @@ export function useUploadDocument() {
 
   return useMutation({
     mutationFn: async (input: UploadDocumentInput) => {
+      debugSupabase.log("Uploading document", { title: input.title, size: input.file.size });
+      const timer = debugQuery.time("Upload document");
+
       // 1. Upload file to Storage
       const fileExt = input.file.name.split(".").pop();
       const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
       const filePath = `${input.company_id}/documents/${fileName}`;
+
+      debugSupabase.log("Uploading to storage", { filePath });
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
@@ -239,9 +291,11 @@ export function useUploadDocument() {
         });
 
       if (uploadError) {
-        console.error("Storage upload error:", uploadError);
+        debugSupabase.error("Storage upload error", uploadError);
         throw new Error("Error al subir el archivo. Intentá de nuevo.");
       }
+
+      debugSupabase.success("File uploaded to storage");
 
       // 2. Create document record
       const { data: document, error: docError } = await supabase
@@ -263,10 +317,13 @@ export function useUploadDocument() {
         .single();
 
       if (docError) {
+        debugSupabase.error("Document record creation error", docError);
         // Try to clean up the uploaded file
         await supabase.storage.from("documents").remove([filePath]);
         throw docError;
       }
+
+      debugSupabase.success("Document record created", { id: document.id });
 
       // 3. Create history record
       const { error: historyError } = await supabase
@@ -282,12 +339,14 @@ export function useUploadDocument() {
         });
 
       if (historyError) {
-        console.warn("History creation error:", historyError);
+        debugSupabase.warn("History creation error (non-blocking)", historyError);
       }
 
+      timer.end();
       return document as Document;
     },
     onSuccess: () => {
+      debugQuery.log("Invalidating documents cache after upload");
       queryClient.invalidateQueries({ queryKey: documentsKeys.all });
     },
   });
@@ -306,6 +365,8 @@ export function useUpdateDocumentStatus() {
 
   return useMutation({
     mutationFn: async (input: UpdateDocumentStatusInput) => {
+      debugSupabase.log("Updating document status", { id: input.id, status: input.status });
+
       // 1. Update document status
       const { data, error } = await supabase
         .from("documents")
@@ -314,7 +375,10 @@ export function useUpdateDocumentStatus() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        debugSupabase.error("Status update error", error);
+        throw error;
+      }
 
       // 2. Create history record
       await supabase.from("document_history").insert({
@@ -325,9 +389,11 @@ export function useUpdateDocumentStatus() {
         comment: `Estado cambiado a: ${input.status}`,
       });
 
+      debugSupabase.success("Status updated", { newStatus: input.status });
       return data as Document;
     },
     onSuccess: (data) => {
+      debugQuery.log("Invalidating caches after status update");
       queryClient.invalidateQueries({ queryKey: documentsKeys.list() });
       queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) });
       queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) });
@@ -351,6 +417,8 @@ export function useDeriveDocument() {
 
   return useMutation({
     mutationFn: async (input: DeriveDocumentInput) => {
+      debugSupabase.log("Deriving document", { id: input.id, toArea: input.to_area_id });
+
       // 1. Update document assignment
       const { data, error } = await supabase
         .from("documents")
@@ -363,7 +431,10 @@ export function useDeriveDocument() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        debugSupabase.error("Derive error", error);
+        throw error;
+      }
 
       // 2. Create history record
       const { error: historyError } = await supabase
@@ -380,12 +451,14 @@ export function useDeriveDocument() {
         });
 
       if (historyError) {
-        console.warn("History creation error:", historyError);
+        debugSupabase.warn("History creation error (non-blocking)", historyError);
       }
 
+      debugSupabase.success("Document derived");
       return data as Document;
     },
     onSuccess: (data) => {
+      debugQuery.log("Invalidating caches after derive");
       queryClient.invalidateQueries({ queryKey: documentsKeys.all });
       queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) });
       queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) });
@@ -393,9 +466,11 @@ export function useDeriveDocument() {
   });
 }
 
-// Track document view
+// Track document view - with deduplication
 export function useTrackDocumentView() {
   const queryClient = useQueryClient();
+  // Use ref to track already tracked views in this session
+  const trackedRef = useRef(new Set<string>());
 
   return useMutation({
     mutationFn: async ({
@@ -407,6 +482,15 @@ export function useTrackDocumentView() {
       companyId: string;
       performedBy: string;
     }) => {
+      // Deduplicate view tracking for same document in same session
+      const trackingKey = `${documentId}-${performedBy}`;
+      if (trackedRef.current.has(trackingKey)) {
+        debugSupabase.log("View already tracked in this session, skipping", { documentId });
+        return;
+      }
+
+      debugSupabase.log("Tracking document view", { documentId });
+      
       const { error } = await supabase.from("document_history").insert({
         document_id: documentId,
         company_id: companyId,
@@ -414,7 +498,13 @@ export function useTrackDocumentView() {
         performed_by: performedBy,
       });
 
-      if (error) throw error;
+      if (error) {
+        debugSupabase.warn("View tracking error (non-blocking)", error);
+        throw error;
+      }
+
+      trackedRef.current.add(trackingKey);
+      debugSupabase.success("View tracked");
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -438,6 +528,8 @@ export function useTrackDocumentDownload() {
       companyId: string;
       performedBy: string;
     }) => {
+      debugSupabase.log("Tracking document download", { documentId });
+      
       const { error } = await supabase.from("document_history").insert({
         document_id: documentId,
         company_id: companyId,
@@ -445,7 +537,12 @@ export function useTrackDocumentDownload() {
         performed_by: performedBy,
       });
 
-      if (error) throw error;
+      if (error) {
+        debugSupabase.warn("Download tracking error (non-blocking)", error);
+        throw error;
+      }
+
+      debugSupabase.success("Download tracked");
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -457,15 +554,18 @@ export function useTrackDocumentDownload() {
 
 // Get signed URL for document download
 export async function getDocumentUrl(filePath: string): Promise<string | null> {
+  debugSupabase.log("Getting signed URL", { filePath });
+  
   const { data, error } = await supabase.storage
     .from("documents")
     .createSignedUrl(filePath, 3600); // 1 hour expiry
 
   if (error) {
-    console.error("Error getting signed URL:", error);
+    debugSupabase.error("Signed URL error", error);
     return null;
   }
 
+  debugSupabase.success("Signed URL generated");
   return data.signedUrl;
 }
 
@@ -474,6 +574,8 @@ export async function downloadDocument(
   filePath: string,
   fileName: string
 ): Promise<boolean> {
+  debugSupabase.log("Downloading document", { filePath, fileName });
+  
   try {
     const { data, error } = await supabase.storage
       .from("documents")
@@ -491,9 +593,10 @@ export async function downloadDocument(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
+    debugSupabase.success("Document downloaded");
     return true;
   } catch (error) {
-    console.error("Download error:", error);
+    debugSupabase.error("Download error", error);
     return false;
   }
 }
@@ -504,23 +607,30 @@ export function useDeleteDocument() {
 
   return useMutation({
     mutationFn: async ({ id, filePath }: { id: string; filePath: string }) => {
+      debugSupabase.log("Deleting document", { id, filePath });
+
       // 1. Delete from storage
       const { error: storageError } = await supabase.storage
         .from("documents")
         .remove([filePath]);
 
       if (storageError) {
-        console.warn("Storage delete error:", storageError);
+        debugSupabase.warn("Storage delete error (continuing)", storageError);
       }
 
       // 2. Delete document record (cascades to history)
       const { error } = await supabase.from("documents").delete().eq("id", id);
 
-      if (error) throw error;
+      if (error) {
+        debugSupabase.error("Document delete error", error);
+        throw error;
+      }
 
+      debugSupabase.success("Document deleted");
       return id;
     },
     onSuccess: () => {
+      debugQuery.log("Invalidating documents cache after delete");
       queryClient.invalidateQueries({ queryKey: documentsKeys.all });
     },
   });

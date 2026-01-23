@@ -45,20 +45,25 @@ import {
 import { DOCUMENT_STATUS, type DocumentStatus } from "@/ui/types/database";
 import { cn } from "@/ui/lib/utils";
 
+// Simplified animation variants - faster and more reliable
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.03 },
+    transition: { 
+      duration: 0.15,
+      staggerChildren: 0.02,
+      when: "beforeChildren" as const
+    },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
+  hidden: { opacity: 0, y: 8 },
   visible: { 
     opacity: 1, 
     y: 0,
-    transition: { duration: 0.2 }
+    transition: { duration: 0.15 }
   },
 };
 
@@ -433,8 +438,8 @@ export default function DocumentsPage() {
           </div>
         </motion.div>
 
-        {/* Documents */}
-        <motion.div variants={itemVariants}>
+        {/* Documents - No parent motion.div to avoid nested animation conflicts */}
+        <div>
           {isLoading ? (
             <div
               className={cn(
@@ -506,7 +511,7 @@ export default function DocumentsPage() {
               ))}
             </motion.div>
           )}
-        </motion.div>
+        </div>
 
         {/* Results Count */}
         {!isLoading && filteredDocuments.length > 0 && (

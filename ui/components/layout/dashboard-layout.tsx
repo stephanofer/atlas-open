@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/ui/components/shadcn/sidebar";
 import { AppSidebar } from "@/ui/components/dashboard/app-sidebar";
 import { Separator } from "@/ui/components/shadcn/separator";
+import { ErrorBoundary } from "@/ui/components/error-boundary";
+import { debugAnimation } from "@/ui/lib/debug";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -28,6 +31,11 @@ export function DashboardLayout() {
   const currentRoute = location.pathname;
   const currentRouteName = routeNames[currentRoute] || "Dashboard";
   const isHomePage = currentRoute === "/dashboard";
+
+  // Debug route transitions
+  useEffect(() => {
+    debugAnimation.log(`Route transition to: ${currentRoute}`);
+  }, [currentRoute]);
 
   return (
     <SidebarProvider>
@@ -57,17 +65,22 @@ export function DashboardLayout() {
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {/* AnimatePresence with popLayout mode prevents stuck animations on route changes */}
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0.9 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.15 }}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          {/* ErrorBoundary catches errors within dashboard pages */}
+          <ErrorBoundary>
+            {/* AnimatePresence with popLayout mode prevents stuck animations on route changes */}
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0.95 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.1 }}
+                onAnimationStart={() => debugAnimation.log("Animation started")}
+                onAnimationComplete={() => debugAnimation.log("Animation completed")}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          </ErrorBoundary>
         </main>
       </SidebarInset>
     </SidebarProvider>
