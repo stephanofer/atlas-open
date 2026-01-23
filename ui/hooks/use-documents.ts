@@ -355,16 +355,20 @@ export function useUploadDocument() {
       timer.end();
       return document as Document;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       debugQuery.log("Invalidating all document-related caches after upload");
-      // Invalidate ALL queries that start with "documents" - this catches list queries 
-      // regardless of filters or user-specific query key parts
-      queryClient.invalidateQueries({ queryKey: documentsKeys.all });
-      // Also invalidate dashboard queries that show document counts and recent documents
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
-      queryClient.invalidateQueries({ queryKey: ["document-monthly-trend"] });
-      queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] });
+      // Use Promise.all to ensure all invalidations complete
+      // refetchType: "all" ensures inactive queries are also marked as stale
+      await Promise.all([
+        queryClient.invalidateQueries({ 
+          queryKey: documentsKeys.all,
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["recent-documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["document-monthly-trend"] }),
+        queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] }),
+      ]);
     },
   });
 }
@@ -409,16 +413,18 @@ export function useUpdateDocumentStatus() {
       debugSupabase.success("Status updated", { newStatus: input.status });
       return data as Document;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       debugQuery.log("Invalidating caches after status update");
-      // Invalidate all document queries
-      queryClient.invalidateQueries({ queryKey: documentsKeys.all });
-      // Invalidate specific document detail and history
-      queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) });
-      queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) });
-      // Invalidate dashboard queries
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ 
+          queryKey: documentsKeys.all,
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) }),
+        queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["recent-documents"] }),
+      ]);
     },
   });
 }
@@ -479,17 +485,19 @@ export function useDeriveDocument() {
       debugSupabase.success("Document derived");
       return data as Document;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       debugQuery.log("Invalidating caches after derive");
-      // Invalidate all document queries
-      queryClient.invalidateQueries({ queryKey: documentsKeys.all });
-      // Invalidate specific document detail and history
-      queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) });
-      queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) });
-      // Invalidate dashboard queries (recent docs, weekly activity shows derived docs)
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
-      queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ 
+          queryKey: documentsKeys.all,
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: documentsKeys.detail(data.id) }),
+        queryClient.invalidateQueries({ queryKey: documentsKeys.history(data.id) }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["recent-documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] }),
+      ]);
     },
   });
 }
@@ -657,15 +665,18 @@ export function useDeleteDocument() {
       debugSupabase.success("Document deleted");
       return id;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       debugQuery.log("Invalidating all document-related caches after delete");
-      // Invalidate all document queries
-      queryClient.invalidateQueries({ queryKey: documentsKeys.all });
-      // Invalidate dashboard queries
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["recent-documents"] });
-      queryClient.invalidateQueries({ queryKey: ["document-monthly-trend"] });
-      queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ 
+          queryKey: documentsKeys.all,
+          refetchType: "all",
+        }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["recent-documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["document-monthly-trend"] }),
+        queryClient.invalidateQueries({ queryKey: ["document-weekly-activity"] }),
+      ]);
     },
   });
 }

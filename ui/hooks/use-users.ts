@@ -105,8 +105,11 @@ export function useCreateUser() {
 
       return data.user as Profile;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: usersKeys.list() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: usersKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
     },
   });
 }
@@ -178,9 +181,11 @@ export function useUpdateUser() {
       if (error) throw error;
       return data as Profile;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: usersKeys.list() });
-      queryClient.invalidateQueries({ queryKey: usersKeys.detail(data.id) });
+    onSuccess: async (data) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: usersKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: usersKeys.detail(data.id) }),
+      ]);
     },
   });
 }
@@ -233,8 +238,11 @@ export function useDeleteUser() {
 
       return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: usersKeys.list() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: usersKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
     },
   });
 }

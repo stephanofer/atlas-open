@@ -78,8 +78,11 @@ export function useCreateArea() {
       }
       return data as Area;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: areasKeys.list() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: areasKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
     },
   });
 }
@@ -114,9 +117,11 @@ export function useUpdateArea() {
       }
       return data as Area;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: areasKeys.list() });
-      queryClient.invalidateQueries({ queryKey: areasKeys.detail(data.id) });
+    onSuccess: async (data) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: areasKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: areasKeys.detail(data.id) }),
+      ]);
     },
   });
 }
@@ -156,8 +161,11 @@ export function useDeleteArea() {
       if (error) throw error;
       return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: areasKeys.list() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: areasKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
     },
   });
 }

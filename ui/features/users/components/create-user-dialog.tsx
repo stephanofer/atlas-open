@@ -191,6 +191,7 @@ export function CreateUserDialog({
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Mínimo 8 caracteres"
+                  autoComplete="off"
                   {...register("password")}
                   disabled={isPending}
                   aria-invalid={!!errors.password}
@@ -230,6 +231,7 @@ export function CreateUserDialog({
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Repetí la contraseña"
+                  autoComplete="off"
                   {...register("confirmPassword")}
                   disabled={isPending}
                   aria-invalid={!!errors.confirmPassword}

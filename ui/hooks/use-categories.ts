@@ -80,8 +80,11 @@ export function useCreateCategory() {
       }
       return data as Category;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoriesKeys.list() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: categoriesKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
     },
   });
 }
@@ -116,11 +119,11 @@ export function useUpdateCategory() {
       }
       return data as Category;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: categoriesKeys.list() });
-      queryClient.invalidateQueries({
-        queryKey: categoriesKeys.detail(data.id),
-      });
+    onSuccess: async (data) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: categoriesKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: categoriesKeys.detail(data.id) }),
+      ]);
     },
   });
 }
@@ -148,8 +151,11 @@ export function useDeleteCategory() {
       if (error) throw error;
       return id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: categoriesKeys.list() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: categoriesKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
     },
   });
 }
