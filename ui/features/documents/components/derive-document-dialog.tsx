@@ -86,7 +86,7 @@ export function DeriveDocumentDialog({
   const onSubmit = async (data: {
     to_area_id: string;
     to_user_id?: string;
-    comment?: string;
+    comment: string;
   }) => {
     if (!document || !profile) return;
 
@@ -200,7 +200,7 @@ export function DeriveDocumentDialog({
               name="comment"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Comentario (opcional)</FormLabel>
+                  <FormLabel>Comentario *</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Agregar notas o instrucciones..."

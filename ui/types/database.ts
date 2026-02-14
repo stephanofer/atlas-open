@@ -42,6 +42,14 @@ export const HISTORY_ACTION_TYPE = {
 export type HistoryActionType =
   (typeof HISTORY_ACTION_TYPE)[keyof typeof HISTORY_ACTION_TYPE];
 
+export const NOTIFICATION_TYPE = {
+  ASSIGNED: "assigned",
+  DERIVED: "derived",
+} as const;
+
+export type NotificationType =
+  (typeof NOTIFICATION_TYPE)[keyof typeof NOTIFICATION_TYPE];
+
 // =====================================================
 // TABLE TYPES
 // =====================================================
@@ -113,6 +121,19 @@ export interface DocumentHistory {
   to_area_id: string | null;
   to_user_id: string | null;
   comment: string | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  company_id: string;
+  recipient_id: string;
+  document_id: string;
+  triggered_by: string;
+  type: NotificationType;
+  title: string;
+  message: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -430,6 +451,74 @@ export type Database = {
           }
         ];
       };
+      notifications: {
+        Row: {
+          id: string;
+          company_id: string;
+          recipient_id: string;
+          document_id: string;
+          triggered_by: string;
+          type: NotificationType;
+          title: string;
+          message: string | null;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          recipient_id: string;
+          document_id: string;
+          triggered_by: string;
+          type: NotificationType;
+          title: string;
+          message?: string | null;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          recipient_id?: string;
+          document_id?: string;
+          triggered_by?: string;
+          type?: NotificationType;
+          title?: string;
+          message?: string | null;
+          is_read?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_triggered_by_fkey";
+            columns: ["triggered_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -467,6 +556,7 @@ export type Database = {
       user_status: UserStatus;
       document_status: DocumentStatus;
       history_action_type: HistoryActionType;
+      notification_type: NotificationType;
     };
     CompositeTypes: {
       [_ in never]: never;

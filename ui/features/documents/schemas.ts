@@ -74,8 +74,8 @@ export const deriveDocumentSchema = z.object({
   to_user_id: z.string().optional(),
   comment: z
     .string()
-    .max(500, { message: "El comentario no puede tener más de 500 caracteres" })
-    .optional(),
+    .min(1, { message: "El comentario es obligatorio" })
+    .max(500, { message: "El comentario no puede tener más de 500 caracteres" }),
 });
 
 export type DeriveDocumentFormData = z.infer<typeof deriveDocumentSchema>;

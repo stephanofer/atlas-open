@@ -3,6 +3,8 @@ import { useRef } from "react";
 import { supabase } from "@/ui/lib/supabase";
 import { useAuthStore } from "@/ui/stores/auth.store";
 import { debugQuery, debugSupabase } from "@/ui/lib/debug";
+import { createNotification } from "@/ui/hooks/use-notifications";
+import { NOTIFICATION_TYPE } from "@/ui/types/database";
 import type {
   Document,
   DocumentHistory,
@@ -352,6 +354,19 @@ export function useUploadDocument() {
         debugSupabase.warn("History creation error (non-blocking)", historyError);
       }
 
+      // 4. Create notification for assigned user (non-blocking)
+      if (input.current_user_id) {
+        await createNotification({
+          company_id: input.company_id,
+          recipient_id: input.current_user_id,
+          document_id: document.id,
+          triggered_by: input.uploaded_by,
+          type: NOTIFICATION_TYPE.ASSIGNED,
+          title: input.title,
+          message: `Te han asignado el documento "${input.title}"`,
+        });
+      }
+
       timer.end();
       return document as Document;
     },
@@ -480,6 +495,21 @@ export function useDeriveDocument() {
 
       if (historyError) {
         debugSupabase.warn("History creation error (non-blocking)", historyError);
+      }
+
+      // 3. Create notification for target user (non-blocking)
+      if (input.to_user_id) {
+        await createNotification({
+          company_id: input.company_id,
+          recipient_id: input.to_user_id,
+          document_id: input.id,
+          triggered_by: input.performed_by,
+          type: NOTIFICATION_TYPE.DERIVED,
+          title: data.title,
+          message: input.comment
+            ? `Te derivaron "${data.title}": ${input.comment}`
+            : `Te derivaron el documento "${data.title}"`,
+        });
       }
 
       debugSupabase.success("Document derived");

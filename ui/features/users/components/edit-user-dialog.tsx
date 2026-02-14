@@ -12,6 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/components/shadcn/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/ui/components/shadcn/alert-dialog";
 import { Button } from "@/ui/components/shadcn/button";
 import { Input } from "@/ui/components/shadcn/input";
 import { Label } from "@/ui/components/shadcn/label";
@@ -52,6 +62,7 @@ export function EditUserDialog({
   isPending,
 }: EditUserDialogProps) {
   const [localError, setLocalError] = useState<string | null>(null);
+  const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
 
   const isSelf = user?.id === currentUserId;
   const isLastAdmin = user?.role === "admin" && adminCount <= 1;
@@ -113,6 +124,7 @@ export function EditUserDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -246,9 +258,13 @@ export function EditUserDialog({
             <Switch
               id="status"
               checked={selectedStatus === "active"}
-              onCheckedChange={(checked) =>
-                setValue("status", checked ? "active" : "inactive")
-              }
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  setValue("status", "active");
+                } else {
+                  setDeactivateDialogOpen(true);
+                }
+              }}
               disabled={isPending || (isLastAdmin && isSelf)}
             />
           </div>
@@ -281,5 +297,32 @@ export function EditUserDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Confirmation dialog for deactivating user */}
+    <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Desactivar usuario?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <strong>{user?.full_name}</strong> ya no podrá acceder al sistema
+            mientras esté inactivo. Podés reactivarlo en cualquier momento.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault();
+              setValue("status", "inactive");
+              setDeactivateDialogOpen(false);
+            }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Desactivar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 }

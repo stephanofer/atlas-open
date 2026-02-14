@@ -417,6 +417,54 @@ CREATE POLICY "Active users can insert document history"
     );
 
 -- =====================================================
+-- 12.5 TABLA: notifications (Notificaciones in-app)
+-- =====================================================
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    recipient_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    triggered_by UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('assigned', 'derived')),
+    title VARCHAR(200) NOT NULL,
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifications_recipient ON notifications(recipient_id, is_read, created_at DESC);
+CREATE INDEX idx_notifications_company ON notifications(company_id);
+
+-- RLS for notifications
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own notifications"
+    ON notifications FOR SELECT
+    USING (recipient_id = auth.uid() AND company_id = get_user_company_id());
+
+CREATE POLICY "Active users can create notifications"
+    ON notifications FOR INSERT
+    WITH CHECK (
+        company_id = get_user_company_id()
+        AND EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() AND status = 'active'
+        )
+    );
+
+CREATE POLICY "Users can update own notifications"
+    ON notifications FOR UPDATE
+    USING (recipient_id = auth.uid())
+    WITH CHECK (recipient_id = auth.uid());
+
+CREATE POLICY "Users can delete own notifications"
+    ON notifications FOR DELETE
+    USING (recipient_id = auth.uid());
+
+-- Enable Realtime for notifications
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+
+-- =====================================================
 -- 13. STORAGE BUCKETS
 -- =====================================================
 

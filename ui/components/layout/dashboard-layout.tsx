@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/ui/components/s
 import { AppSidebar } from "@/ui/components/dashboard/app-sidebar";
 import { Separator } from "@/ui/components/shadcn/separator";
 import { ErrorBoundary } from "@/ui/components/error-boundary";
+import { NotificationBell } from "@/ui/features/notifications";
 import { debugAnimation } from "@/ui/lib/debug";
 import {
   Breadcrumb,
@@ -41,7 +42,7 @@ export function DashboardLayout() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
@@ -62,6 +63,9 @@ export function DashboardLayout() {
                 )}
               </BreadcrumbList>
             </Breadcrumb>
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 overflow-auto">
