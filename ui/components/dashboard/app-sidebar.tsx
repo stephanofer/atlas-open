@@ -10,6 +10,7 @@ import {
   LogOut,
   ChevronUp,
   User,
+  LayoutGrid,
 } from "lucide-react";
 
 import { Logo } from "@/ui/components/brand";
@@ -53,6 +54,11 @@ const mainNavItems = [
     title: "Subir Documento",
     icon: Upload,
     href: "/dashboard/upload",
+  },
+  {
+    title: "Panel de Área",
+    icon: LayoutGrid,
+    href: "/dashboard/area-manager",
   },
 ];
 

@@ -23,6 +23,7 @@ const routeNames: Record<string, string> = {
   "/dashboard/users": "Usuarios",
   "/dashboard/areas": "Áreas",
   "/dashboard/categories": "Categorías",
+  "/dashboard/area-manager": "Panel de Área",
   "/dashboard/profile": "Mi Perfil",
   "/dashboard/settings": "Configuración",
 };
